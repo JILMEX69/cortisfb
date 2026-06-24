@@ -16,7 +16,17 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY; // pakai Service Role Key
 const JWT_SECRET  = process.env.JWT_SECRET;            // string acak panjang
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false
+    },
+    global: {
+        headers: {
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+    }
+});
 
 // ============= HELPER =============
 function respond(statusCode, body) {
