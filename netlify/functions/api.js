@@ -76,6 +76,8 @@ exports.handler = async (event) => {
 
     console.log(`[API] ${method} /${path}`);
 
+    // ============= AUTH =============
+
     // POST /register
     if (method === 'POST' && path === 'register') {
         const { username, email, password } = body;
@@ -86,14 +88,12 @@ exports.handler = async (event) => {
                 .select('id').or(`username.eq.${username},email.eq.${email}`).maybeSingle();
             if (existing) return respond(400, { error: 'Username atau email sudah digunakan' });
             const hashed = await bcrypt.hash(password, 10);
-            const { data: inserted, error } = await supabase.from('users')
-                .insert({ username, email, password: hashed, role: 'user', banned: false })
-                .select();
+            const { error } = await supabase.from('users')
+                .insert([{ username, email, password: hashed, role: 'user', banned: false }]);
             if (error) {
                 console.log('INSERT ERROR:', JSON.stringify(error));
                 return respond(500, { error: error.message });
             }
-            console.log('REGISTER SUCCESS:', inserted);
             return respond(201, { message: 'Registrasi berhasil!' });
         } catch(e) {
             console.log('REGISTER EXCEPTION:', e.message);
@@ -132,6 +132,8 @@ exports.handler = async (event) => {
         return respond(200, { user: { id: user.id, username: user.username, role: user.role } });
     }
 
+    // ============= MEMBERS =============
+
     // GET /members
     if (method === 'GET' && path === 'members') {
         const { data } = await supabase.from('members').select('*').order('id');
@@ -150,8 +152,8 @@ exports.handler = async (event) => {
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { name, role: memberRole, bio, photo } = body;
         if (!name) return respond(400, { error: 'Nama wajib diisi' });
-        const { error } = await supabase.from('members').insert({ name, role: memberRole, bio, photo });
-        if (error) return respond(500, { error: error.message });
+        const { error } = await supabase.from('members').insert([{ name, role: memberRole, bio, photo }]);
+        if (error) { console.log('MEMBERS INSERT ERROR:', JSON.stringify(error)); return respond(500, { error: error.message }); }
         return respond(201, { message: 'Member berhasil ditambahkan' });
     }
 
@@ -160,7 +162,8 @@ exports.handler = async (event) => {
         const user = await getCurrentUser(event);
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { name, role: memberRole, bio, photo } = body;
-        await supabase.from('members').update({ name, role: memberRole, bio, photo }).eq('id', pathParts[1]);
+        const { error } = await supabase.from('members').update({ name, role: memberRole, bio, photo }).eq('id', pathParts[1]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: 'Member berhasil diupdate' });
     }
 
@@ -171,6 +174,8 @@ exports.handler = async (event) => {
         await supabase.from('members').delete().eq('id', pathParts[1]);
         return respond(200, { message: 'Member berhasil dihapus' });
     }
+
+    // ============= GALLERY =============
 
     // GET /gallery
     if (method === 'GET' && path === 'gallery') {
@@ -198,8 +203,8 @@ exports.handler = async (event) => {
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { title, filename, caption } = body;
         if (!filename) return respond(400, { error: 'URL gambar wajib diisi' });
-        const { error } = await supabase.from('gallery').insert({ title, filename, caption, uploaded_at: new Date().toISOString() });
-        if (error) return respond(500, { error: error.message });
+        const { error } = await supabase.from('gallery').insert([{ title, filename, caption, uploaded_at: new Date().toISOString() }]);
+        if (error) { console.log('GALLERY INSERT ERROR:', JSON.stringify(error)); return respond(500, { error: error.message }); }
         return respond(201, { message: 'Foto berhasil ditambahkan' });
     }
 
@@ -208,7 +213,8 @@ exports.handler = async (event) => {
         const user = await getCurrentUser(event);
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { title, caption, filename } = body;
-        await supabase.from('gallery').update({ title, caption, filename }).eq('id', pathParts[1]);
+        const { error } = await supabase.from('gallery').update({ title, caption, filename }).eq('id', pathParts[1]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: 'Foto berhasil diupdate' });
     }
 
@@ -219,6 +225,8 @@ exports.handler = async (event) => {
         await supabase.from('gallery').delete().eq('id', pathParts[1]);
         return respond(200, { message: 'Foto berhasil dihapus' });
     }
+
+    // ============= NEWS =============
 
     // GET /news
     if (method === 'GET' && path === 'news') {
@@ -246,8 +254,8 @@ exports.handler = async (event) => {
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { title, content, date } = body;
         if (!title || !content) return respond(400, { error: 'Judul dan isi wajib diisi' });
-        const { error } = await supabase.from('news').insert({ title, content, date: date || new Date().toISOString().split('T')[0] });
-        if (error) return respond(500, { error: error.message });
+        const { error } = await supabase.from('news').insert([{ title, content, date: date || new Date().toISOString().split('T')[0] }]);
+        if (error) { console.log('NEWS INSERT ERROR:', JSON.stringify(error)); return respond(500, { error: error.message }); }
         return respond(201, { message: 'Berita berhasil ditambahkan' });
     }
 
@@ -256,7 +264,8 @@ exports.handler = async (event) => {
         const user = await getCurrentUser(event);
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { title, content, date } = body;
-        await supabase.from('news').update({ title, content, date }).eq('id', pathParts[1]);
+        const { error } = await supabase.from('news').update({ title, content, date }).eq('id', pathParts[1]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: 'Berita berhasil diupdate' });
     }
 
@@ -267,6 +276,8 @@ exports.handler = async (event) => {
         await supabase.from('news').delete().eq('id', pathParts[1]);
         return respond(200, { message: 'Berita berhasil dihapus' });
     }
+
+    // ============= SOCIAL MEDIA =============
 
     // GET /social
     if (method === 'GET' && path === 'social') {
@@ -286,7 +297,8 @@ exports.handler = async (event) => {
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { platform, url, embed_code, caption } = body;
         if (!url) return respond(400, { error: 'URL wajib diisi' });
-        await supabase.from('social').insert({ platform, url, embed_code, caption });
+        const { error } = await supabase.from('social').insert([{ platform, url, embed_code, caption }]);
+        if (error) return respond(500, { error: error.message });
         return respond(201, { message: 'Sosial media berhasil ditambahkan' });
     }
 
@@ -295,7 +307,8 @@ exports.handler = async (event) => {
         const user = await getCurrentUser(event);
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { platform, url, embed_code, caption } = body;
-        await supabase.from('social').update({ platform, url, embed_code, caption }).eq('id', pathParts[1]);
+        const { error } = await supabase.from('social').update({ platform, url, embed_code, caption }).eq('id', pathParts[1]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: 'Berhasil diupdate' });
     }
 
@@ -306,6 +319,8 @@ exports.handler = async (event) => {
         await supabase.from('social').delete().eq('id', pathParts[1]);
         return respond(200, { message: 'Berhasil dihapus' });
     }
+
+    // ============= MUSIC =============
 
     // GET /music
     if (method === 'GET' && path === 'music') {
@@ -325,7 +340,8 @@ exports.handler = async (event) => {
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { title, url } = body;
         if (!url) return respond(400, { error: 'URL file MP3 wajib diisi' });
-        await supabase.from('music').insert({ title, filepath: url });
+        const { error } = await supabase.from('music').insert([{ title, filepath: url }]);
+        if (error) return respond(500, { error: error.message });
         return respond(201, { message: 'Lagu berhasil ditambahkan' });
     }
 
@@ -334,7 +350,8 @@ exports.handler = async (event) => {
         const user = await getCurrentUser(event);
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { title } = body;
-        await supabase.from('music').update({ title }).eq('id', pathParts[1]);
+        const { error } = await supabase.from('music').update({ title }).eq('id', pathParts[1]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: 'Berhasil diupdate' });
     }
 
@@ -345,6 +362,8 @@ exports.handler = async (event) => {
         await supabase.from('music').delete().eq('id', pathParts[1]);
         return respond(200, { message: 'Lagu berhasil dihapus' });
     }
+
+    // ============= BACKGROUND =============
 
     // GET /background
     if (method === 'GET' && path === 'background') {
@@ -357,9 +376,12 @@ exports.handler = async (event) => {
         const user = await getCurrentUser(event);
         if (!user || !['admin','super_admin'].includes(user.role)) return respond(403, { error: 'Akses ditolak' });
         const { url } = body;
-        await supabase.from('settings').upsert({ key: 'background', value: url });
+        const { error } = await supabase.from('settings').upsert([{ key: 'background', value: url }]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: 'Background berhasil diupdate' });
     }
+
+    // ============= FORUM =============
 
     // GET /forum
     if (method === 'GET' && path === 'forum') {
@@ -381,12 +403,12 @@ exports.handler = async (event) => {
         if (!user) return respond(401, { error: 'Login dulu untuk posting' });
         const { message, parent_id } = body;
         if (!message?.trim()) return respond(400, { error: 'Pesan tidak boleh kosong' });
-        const { error } = await supabase.from('forum').insert({
+        const { error } = await supabase.from('forum').insert([{
             username: user.username, user_id: user.id,
             message: message.trim(), parent_id: parent_id || 0,
             created_at: new Date().toISOString(),
-        });
-        if (error) return respond(500, { error: error.message });
+        }]);
+        if (error) { console.log('FORUM INSERT ERROR:', JSON.stringify(error)); return respond(500, { error: error.message }); }
         return respond(201, { message: 'Berhasil diposting' });
     }
 
@@ -397,6 +419,8 @@ exports.handler = async (event) => {
         await supabase.from('forum').delete().or(`id.eq.${pathParts[1]},parent_id.eq.${pathParts[1]}`);
         return respond(200, { message: 'Postingan berhasil dihapus' });
     }
+
+    // ============= STATS =============
 
     // GET /stats
     if (method === 'GET' && path === 'stats') {
@@ -419,6 +443,8 @@ exports.handler = async (event) => {
         });
     }
 
+    // ============= USER MANAGEMENT =============
+
     // GET /admin/users
     if (method === 'GET' && path === 'admin/users') {
         const user = await getCurrentUser(event);
@@ -432,7 +458,8 @@ exports.handler = async (event) => {
         const user = await getCurrentUser(event);
         if (!user || user.role !== 'super_admin') return respond(403, { error: 'Akses ditolak' });
         const { role } = body;
-        await supabase.from('users').update({ role }).eq('id', pathParts[2]);
+        const { error } = await supabase.from('users').update({ role }).eq('id', pathParts[2]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: 'Role berhasil diupdate' });
     }
 
@@ -441,7 +468,8 @@ exports.handler = async (event) => {
         const user = await getCurrentUser(event);
         if (!user || user.role !== 'super_admin') return respond(403, { error: 'Akses ditolak' });
         const { banned } = body;
-        await supabase.from('users').update({ banned }).eq('id', pathParts[2]);
+        const { error } = await supabase.from('users').update({ banned }).eq('id', pathParts[2]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: banned ? 'User berhasil di-ban' : 'User berhasil di-unban' });
     }
 
@@ -449,9 +477,11 @@ exports.handler = async (event) => {
     if (method === 'DELETE' && pathParts[0] === 'admin' && pathParts[1] === 'users' && pathParts[2]) {
         const user = await getCurrentUser(event);
         if (!user || user.role !== 'super_admin') return respond(403, { error: 'Akses ditolak' });
-        await supabase.from('users').delete().eq('id', pathParts[2]);
+        const { error } = await supabase.from('users').delete().eq('id', pathParts[2]);
+        if (error) return respond(500, { error: error.message });
         return respond(200, { message: 'User berhasil dihapus' });
     }
 
+    // ============= 404 =============
     return respond(404, { error: `Route tidak ditemukan: ${method} /${path}` });
 };
